@@ -1,0 +1,174 @@
+---
+title: "Code Through - rtweet"
+author: "Elyse King"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document: 
+  theme: flatly
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+library(rtweet)
+library(ggplot2)
+library(dplyr)
+library(tidytext)
+library(rlang)
+library(httpuv)
+library(knitr)
+
+
+
+
+```
+
+## Introduction to rtweet Package
+Twitter has been a powerful platform used from politics to inspiring social movements to building online communities of like-minded individuals. For this class's code through, I'll be going over how to collect tweets from Twitter and how to analyze data from that collection. 
+
+<center>![Twitter Logo](C:/Users/eking/Documents/Data Science 2/Code through img/TwitterLogo.JPG)</center>
+
+## Current Use Case
+One of the most fun use cases I have come across in R programming is figuring out all the ways we can use public data to gather insights about various topics. For example, the article from the NY Times that used R to analyze the twitter accounts to figure out who wrote an op-ed was a powerful example on what can be done with Twitter. For today's code through, I'll be going over a less exciting example, but nonetheless with help you gain a grasp on what you can accomplish with this awesome package, rtweet. Through out this process I will go over my own Twitter account and analyze what are the most common themes I discuss in my tweets. 
+
+# Step 1:Load your Libraries and Authenticate
+For this project, we will be using tidyverse's ggplot, dplyr, and rtweet. Create a code block to load your these libraries. 
+
+Next, we need to authenticate using Twitter's API.*
+
+*Now, it is said in rcran that you do not need to have Twitter API access using a Twitter Developer Account. However, I found that for ease of use and ensuring that authentication is streamlined, I recommend a developer account.You will need to apply for a developer account and then provide reasoning as to why you need access.
+
+Apply for a Twitter Dev account here: https://developer.twitter.com/en/apply-for-access
+
+```{r echo=FALSE}
+
+twitter_token <- create_token(
+app = "CPP",
+consumer_key = "aRmO01ystV7dltchYJ20ViYCZ",
+consumer_secret = "RRZ5ivgflgNgZt1AD10hZ3hWuSLE7N45RMdOpdslBXiQxwhaRH",
+access_token = "1046612710564089856-KMuUunITCOb1qRszrVOcchGuWfOumI",
+access_secret = "zmesqLl8ShU8qa5SJTN5NwFpjqpzHniMjzUwTirGBWuIj",
+set_renv = TRUE
+)
+
+```
+        
+
+<center>![Token Example](C:/Users/eking/Documents/Data Science 2/Code through img/token.JPG)</center>
+
+
+
+# Basic Functions: 
+
+
+***Searching for Tweets***
+
+*Description on rCran* 
+Returns Twitter statuses matching a user provided search query. ONLY RETURNS DATA FROM THE PAST 6-9 DAYS. To return more than 18,000 statuses in a single call, set "retryonratelimit" to TRUE.search_tweets2 Passes all arguments to search_tweets. Returns data from one OR MORE search queries.
+
+*Example* Let's look at an example of how to search tweets and assign to an object. I'm going to search for tweets related to a hashtag I follow which is #DataTribe. It's a small group of Salesforce Data Analytics users. 
+
+Below here, "q" represents what you want to be searching, "type" is asking what data you want to return. Twitter's REST API documentation has a list of what is available: https://developer.twitter.com/en/docs/twitter-api/api-reference-index. "n" is the number of results you want to share, and "include_rts" is a TRUE or FALSE option asking if you want to include retweets or not. 
+
+The table of data below will show you the return results. 
+
+```{r}
+einstein <- search_tweets(q = "datatribe", in_reply_to_status_id = NULL, retweet_count = 0, type = "recent", n=5, include_rts=FALSE)
+
+
+tibble(einstein$screen_name, einstein$text)
+  
+
+```
+
+***Showing Tweets From a Specific User Account*** 
+
+*Description on rCran*
+Returns up to 3,200 statuses posted to the timelines of each of one or more specified Twitter users.
+
+*Example* 
+For this example, I want to bring up my tweets so that we can use this data in later examples. In the following example, I also remove retweets and replies so we get what I solely tweet about.
+
+```{r}
+
+#Get tweets from my timeline, limit to recent tweets, capped at 1000, exclude retweets and replies. 
+
+elysecara1 <- get_timeline("@elysecara1", n= 1000, exclude_retweets = TRUE, exclude_replies = TRUE ,type= "recent")
+
+tibble(elysecara1$screen_name, elysecara1$text)
+
+```
+
+# Analyzing Tweets:
+
+***Most Frequented Words***
+
+```{r echo=TRUE, results='hide', fig.show='hide', message=FALSE, warning=FALSE}
+elysecara1$text <-  gsub("https\\S*", "", elysecara1$text)
+elysecara1$text <-  gsub("@\\S*", "", elysecara1$text) 
+elysecara1$text  <-  gsub("amp", "", elysecara1$text) 
+elysecara1$text <-  gsub("[\r\n]", "", elysecara1$text)
+elysecara1$text <-  gsub("[[:punct:]]", "", elysecara1$text)
+
+
+tweets <- elysecara1 %>%
+    select(text) %>%
+    unnest_tokens(word, text)
+tweets <- tweets %>%
+    anti_join(stop_words)
+
+
+tweets %>% 
+  count(word, sort = TRUE) %>%
+  top_n(15) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+  labs(y = "Count",
+       x = "Word",
+       title = "Most Common words")
+```
+
+
+<center>![Bar Graph Image](C:/Users/eking/Documents/Data Science 2/Code through img/Bar.JPG)</center>
+
+
+
+# Get Friend List:
+Let's say we want to gather the list of usernames of those that you follow: 
+
+```{r salesforce}
+## Gather followers
+followers <- get_friends("elysecara1")
+
+#get the screen_name to print
+followers_data <- lookup_users(followers$user_id)
+print(followers_data$screen_name)
+```
+
+
+
+
+
+
+
+&nbsp;
+<hr />
+<p style="text-align: center;">A work by <a href="https://github.com/ecking">Elyse King</a></p>
+<p style="text-align: center;"><span style="color: #808080;"><em>ecking@asu.edu</em></span></p>
+
+<!-- Add icon library -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+<!-- Add font awesome icons -->
+<p style="text-align: center;">
+    <a href="https://twitter.com/ElyseCara1" class="fa fa-twitter"></a>
+    <a href="https://www.linkedin.com/in/elyseking/" class="fa fa-linkedin"></a>
+    <a href="https://github.com/ecking" class="fa fa-github"></a>
+</p>
+
+&nbsp;
